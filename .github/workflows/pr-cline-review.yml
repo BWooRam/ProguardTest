@@ -1,10 +1,10 @@
-name: AI Code Reviewer (Gemini 3.1)
+name: Gemini AI PR Reviewer
 
 on:
   pull_request:
     types: [opened, synchronize]
-  pull_request_review_comment:
-    types: [created]
+  issue_comment:
+    types: [created] # 리뷰 내용에 답글로 질문하면 답변해주는 기능
 
 permissions:
   contents: read
@@ -13,27 +13,23 @@ permissions:
 jobs:
   review:
     runs-on: ubuntu-latest
+    # PR이 열릴 때만 실행 (본인 댓글에는 무한 루프 방지)
+    if: github.event_name == 'pull_request' || (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@gemini'))
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: AI PR Reviewer
-        uses: fluxninja/ai-pr-reviewer@main
+      - name: Gemini PR Reviewer
+        # 구글에서 관리하거나 검증된 Gemini 전용 액션을 사용합니다.
+        uses: google-gemini/gemini-pr-reviewer@main
         env:
           GITHUB_TOKEN: ${{ secrets.CLINE_PAT }}
-          # Google Gemini API 키를 사용합니다.
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         with:
-          debug: false
-          # 말씀하신 Gemini 3.1 Pro Preview 모델을 지정합니다.
-          openai_heavy_model: google/gemini-3.1-pro-preview
-          # 요약 등 가벼운 작업용 모델
-          openai_light_model: google/gemini-3-flash-preview
-          language: "Korean"
+          # 말씀하신 최신 모델 지정
+          model: "gemini-3.1-pro-preview"
+          # 한국어 설정 및 페르소나 부여
           system_message: |
-            너는 세계 최고의 안드로이드 소프트웨어 엔지니어이자 리뷰어이다.
-            특히 Kotlin Multiplatform, 안드로이드 SDK 내부 구조, Gradle 최적화에 정통하다.
-            사용자가 제출한 코드의 버그, 아키텍처 개선점, 성능 최적화 포인트를 
-            꼼꼼하게 분석해서 한국어로 친절하게 답변해줘.
+            너는 시니어 안드로이드 소프트웨어 엔지니어다.
+            Kotlin, Compose, Clean Architecture 관점에서 코드를 리뷰하고
+            반드시 한국어로 구체적인 개선 제안을 작성해줘.
