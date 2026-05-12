@@ -1,0 +1,39 @@
+name: Android Coverage Check
+
+on:
+  pull_request:
+    branches: [ "main", "master" ] # PR의 타겟 브랜치가 main 또는 master일 때 실행
+
+jobs:
+  coverage:
+    name: Run Test Coverage
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. 저장소의 코드를 가져옵니다.
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. Java 환경을 설정합니다.
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle # Gradle 종속성 캐싱
+
+      # 3. gradlew 파일에 실행 권한을 부여합니다.
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      # 4. 단위 테스트 실행 및 커버리지 검증 (70% 미만 시 여기서 실패 처리됨)
+      - name: Run Coverage Verification
+        run: ./gradlew jacocoTestCoverageVerification
+
+      # 5. 커버리지 결과 리포트를 아티팩트로 업로드합니다. (실패하더라도 업로드하여 원인 파악 가능)
+      - name: Upload Coverage Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: app/build/reports/jacoco/html/
