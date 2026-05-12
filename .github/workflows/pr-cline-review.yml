@@ -20,14 +20,14 @@ jobs:
       - name: Set up Python 3.11
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11' # 경고 방지를 위해 최신 버전 사용
+          python-version: '3.11'
 
       - name: Install dependencies
+        # 패키지명은 google-genai가 맞습니다.
         run: pip install google-genai requests
 
       - name: Run Gemini Review
         env:
-          # 라이브러리가 요구하는 표준 환경변수명으로 변경
           GOOGLE_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.CLINE_PAT }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -35,11 +35,12 @@ jobs:
         run: |
           python - <<EOF
           import os
-          from genai import Client
           import requests
+          # 수정 포인트: import 이름은 google.genai 입니다.
+          from google import genai
 
-          # 1. 새 라이브러리(google-genai) 방식 설정
-          client = Client(api_key=os.getenv("GOOGLE_API_KEY"), http_options={'api_version': 'v1alpha'})
+          # 1. 클라이언트 설정
+          client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
 
           # 2. PR Diff 가져오기
           headers = {"Authorization": f"token {os.getenv('GITHUB_TOKEN')}"}
@@ -49,9 +50,9 @@ jobs:
           diff_data = diff_response.text
 
           # 3. Gemini 3.1 Pro Preview 모델 호출
+          # 최신 SDK의 호출 규격(models.generate_content)을 따릅니다.
           prompt = f"너는 시니어 안드로이드 엔지니어다. 아래 코드 변경사항을 리뷰하고 버그, 아키텍처, 개선점을 한국어로 요약해줘.\n\n{diff_data}"
           
-          # 새로운 라이브러리 호출 규격
           response = client.models.generate_content(
               model="gemini-3.1-pro-preview",
               contents=prompt
