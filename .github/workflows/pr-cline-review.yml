@@ -1,4 +1,4 @@
-name: Gemini AI Reviewer
+name: Gemini AI Code Review
 
 on:
   pull_request:
@@ -14,18 +14,48 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-
-      - name: AI PR Reviewer (Gemini)
-        # 이 경로는 현재 GitHub Actions에서 정상적으로 호출 가능한 실제 주소입니다.
-        uses: stremp/ai-pr-reviewer@master
-        env:
-          GITHUB_TOKEN: ${{ secrets.CLINE_PAT }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         with:
-          # 말씀하신 최신 모델을 명확히 지정합니다.
-          model: "gemini-3.1-pro-preview"
-          language: "Korean"
-          system_message: |
-            너는 시니어 안드로이드 소프트웨어 엔지니어다.
-            Kotlin, Compose, Clean Architecture 관점에서 코드를 리뷰하고
-            한국어로 구체적이고 논리적인 개선 제안을 작성해라.
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: pip install google-generativeai requests
+
+      - name: Run Gemini Review
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.CLINE_PAT }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          python - <<EOF
+          import os
+          import google.generativeai as genai
+          import requests
+
+          # 1. Gemini 설정
+          genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+          model = genai.GenerativeModel("gemini-3.1-pro-preview")
+
+          # 2. PR Diff 가져오기
+          headers = {"Authorization": f"token {os.getenv('GITHUB_TOKEN')}"}
+          url = f"https://api.github.com/repos/{os.getenv('REPO')}/pulls/{os.getenv('PR_NUMBER')}"
+          diff_url = f"{url}.diff"
+          diff_data = requests.get(diff_url, headers={"Accept": "application/vnd.github.v3.diff", **headers}).text
+
+          # 3. AI 리뷰 요청
+          prompt = f"너는 시니어 안드로이드 엔지니어다. 아래 PR 변경사항을 보고 버그, 아키텍처, 성능 위주로 한국어로 리뷰해줘.\n\n{diff_data}"
+          response = model.generate_content(prompt)
+
+          # 4. 리뷰 댓글 달기
+          comment_url = f"{url}/reviews"
+          payload = {
+              "body": f"### 🤖 Gemini 3.1 Pro AI Review\n\n{response.text}",
+              "event": "COMMENT"
+          }
+          requests.post(comment_url, headers=headers, json=payload)
+          EOF
