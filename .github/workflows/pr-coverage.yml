@@ -4,15 +4,14 @@ on:
   pull_request:
     branches: [ "main", "master" ] # PR의 타겟 브랜치가 main 또는 master일 때 실행
 
-# PR에 댓글을 달기 위한 권한을 명시적으로 부여합니다.
-permissions:
-  pull-requests: write
-  contents: read
-
 jobs:
   coverage:
     name: Run Test Coverage
     runs-on: ubuntu-latest
+    # Job 레벨에서 권한을 다시 한번 명시합니다.
+    permissions:
+      pull-requests: write
+      contents: read
 
     steps:
       # 1. 저장소의 코드를 가져옵니다.
