@@ -1,0 +1,30 @@
+name: Cline AI Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize] # PR이 열리거나 코드가 업데이트될 때 실행
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # 전체 히스토리를 가져와야 비교가 가능함
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Cline CLI
+        run: npm install -g @cline/cli # Cline을 실행할 도구 설치
+
+      - name: Run Cline Review
+        env:
+          CLINE_PAT: ${{ secrets.CLINE_PAT }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          # Cline에게 "변경된 코드를 리뷰하고 댓글로 달아줘"라고 명령함
+          cline review --api anthropic --diff-base main --yolo
