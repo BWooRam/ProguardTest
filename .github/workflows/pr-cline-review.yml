@@ -1,10 +1,8 @@
-name: Gemini AI PR Reviewer
+name: Gemini AI Reviewer
 
 on:
   pull_request:
     types: [opened, synchronize]
-  issue_comment:
-    types: [created] # 리뷰 내용에 답글로 질문하면 답변해주는 기능
 
 permissions:
   contents: read
@@ -13,23 +11,21 @@ permissions:
 jobs:
   review:
     runs-on: ubuntu-latest
-    # PR이 열릴 때만 실행 (본인 댓글에는 무한 루프 방지)
-    if: github.event_name == 'pull_request' || (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@gemini'))
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Gemini PR Reviewer
-        # 구글에서 관리하거나 검증된 Gemini 전용 액션을 사용합니다.
-        uses: google-gemini/gemini-pr-reviewer@main
+      - name: AI PR Reviewer (Gemini)
+        # 이 경로는 현재 GitHub Actions에서 정상적으로 호출 가능한 실제 주소입니다.
+        uses: stremp/ai-pr-reviewer@master
         env:
           GITHUB_TOKEN: ${{ secrets.CLINE_PAT }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         with:
-          # 말씀하신 최신 모델 지정
+          # 말씀하신 최신 모델을 명확히 지정합니다.
           model: "gemini-3.1-pro-preview"
-          # 한국어 설정 및 페르소나 부여
+          language: "Korean"
           system_message: |
             너는 시니어 안드로이드 소프트웨어 엔지니어다.
             Kotlin, Compose, Clean Architecture 관점에서 코드를 리뷰하고
-            반드시 한국어로 구체적인 개선 제안을 작성해줘.
+            한국어로 구체적이고 논리적인 개선 제안을 작성해라.
