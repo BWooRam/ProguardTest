@@ -5,7 +5,7 @@ on:
     branches: [ "main", "develop" ] # PR의 타겟 브랜치가 main 또는 develop일 때 실행
 
 jobs:
-  coverage:
+  Run-Test-Coverage:
     name: Run Test Coverage
     runs-on: ubuntu-latest
     # Job 레벨에서 권한을 다시 한번 명시합니다.
