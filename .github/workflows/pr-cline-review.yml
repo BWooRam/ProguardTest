@@ -3,6 +3,7 @@ name: Gemini 3.1 AI Review
 on:
   pull_request:
     types: [opened, synchronize]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -11,6 +12,7 @@ permissions:
 jobs:
   review:
     runs-on: ubuntu-latest
+    if: github.event.pull_request.head.repo.full_name == github.repository
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -23,46 +25,62 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        # 패키지명은 google-genai가 맞습니다.
         run: pip install google-genai requests
 
       - name: Run Gemini Review
         env:
-          GOOGLE_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GITHUB_TOKEN: ${{ secrets.CLINE_PAT }}
+          # 시크릿에 등록하신 CLINE_PAT를 사용하도록 수정했습니다.
+          GEMINI_API_KEY_VAL: ${{ secrets.GEMINI_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.CLINE_PAT }} # <-- 이 부분을 변경함
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REPO: ${{ github.repository }}
         run: |
           python - <<EOF
           import os
           import requests
-          # 수정 포인트: import 이름은 google.genai 입니다.
+          import sys
           from google import genai
 
-          # 1. 클라이언트 설정
-          client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
-
-          # 2. PR Diff 가져오기
-          headers = {"Authorization": f"token {os.getenv('GITHUB_TOKEN')}"}
-          url = f"https://api.github.com/repos/{os.getenv('REPO')}/pulls/{os.getenv('PR_NUMBER')}"
-          diff_url = f"{url}.diff"
-          diff_response = requests.get(diff_url, headers={"Accept": "application/vnd.github.v3.diff", **headers})
-          diff_data = diff_response.text
-
-          # 3. Gemini 3.1 Pro Preview 모델 호출
-          # 최신 SDK의 호출 규격(models.generate_content)을 따릅니다.
-          prompt = f"너는 시니어 안드로이드 엔지니어다. 아래 코드 변경사항을 리뷰하고 버그, 아키텍처, 개선점을 한국어로 요약해줘.\n\n{diff_data}"
+          api_key = os.getenv("GEMINI_API_KEY_VAL")
+          github_token = os.getenv("GITHUB_TOKEN")
           
-          response = client.models.generate_content(
-              model="gemini-3.1-pro-preview",
-              contents=prompt
-          )
+          if not api_key:
+              print("❌ 에러: GEMINI_API_KEY 시크릿을 찾을 수 없습니다.")
+              sys.exit(1)
+          
+          if not github_token:
+              print("❌ 에러: GITHUB_TOKEN(CLINE_PAT)을 찾을 수 없습니다.")
+              sys.exit(1)
 
-          # 4. GitHub에 리뷰 결과 전송
-          comment_url = f"{url}/reviews"
-          payload = {
-              "body": f"### 🤖 Gemini 3.1 Pro AI Review\n\n{response.text}",
-              "event": "COMMENT"
-          }
-          requests.post(comment_url, headers=headers, json=payload)
+          try:
+              client = genai.Client(api_key=api_key)
+
+              headers = {"Authorization": f"token {github_token}"}
+              url = f"https://api.github.com/repos/{os.getenv('REPO')}/pulls/{os.getenv('PR_NUMBER')}"
+          
+              # Diff 가져오기
+              diff_response = requests.get(f"{url}.diff", headers={"Accept": "application/vnd.github.v3.diff", **headers})
+              if diff_response.status_code != 200:
+                  print(f"❌ Diff 가져오기 실패: {diff_response.status_code}")
+                  sys.exit(1)
+          
+              diff_data = diff_response.text
+
+              # AI 리뷰 생성
+              prompt = f"너는 시니어 안드로이드 엔지니어다. 아래 코드 변경사항을 리뷰하고 버그, 아키텍처, 개선점을 한국어로 요약해줘.\n\n{diff_data}"
+              response = client.models.generate_content(model="gemini-3.1-pro-preview", contents=prompt)
+
+              # 리뷰 작성
+              comment_url = f"{url}/reviews"
+              payload = {"body": f"### 🤖 Gemini 3.1 Pro AI Review\n\n{response.text}", "event": "COMMENT"}
+              res = requests.post(comment_url, headers=headers, json=payload)
+          
+              if res.status_code == 201 or res.status_code == 200:
+                  print("✅ 리뷰 작성이 완료되었습니다.")
+              else:
+                  print(f"❌ 리뷰 작성 실패: {res.status_code}, {res.text}")
+
+          except Exception as e:
+              print(f"❌ 에러 발생: {str(e)}")
+              sys.exit(1)
           EOF
