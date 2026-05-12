@@ -12,7 +12,7 @@ permissions:
 jobs:
   review:
     runs-on: ubuntu-latest
-    if: github.event.pull_request.head.repo.full_name == github.repository
+    # 스킵의 원인이었던 if 문을 삭제했습니다. 이제 모든 PR에서 무조건 실행됩니다.
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -29,9 +29,8 @@ jobs:
 
       - name: Run Gemini Review
         env:
-          # 시크릿에 등록하신 CLINE_PAT를 사용하도록 수정했습니다.
           GEMINI_API_KEY_VAL: ${{ secrets.GEMINI_API_KEY }}
-          GITHUB_TOKEN: ${{ secrets.CLINE_PAT }} # <-- 이 부분을 변경함
+          GITHUB_TOKEN: ${{ secrets.CLINE_PAT }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REPO: ${{ github.repository }}
         run: |
