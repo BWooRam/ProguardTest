@@ -1,27 +1,18 @@
 name: Android Coverage Check
 
 on:
-  pull_request_target: # Fork PR 환경에서 쓰기 권한을 얻기 위해 pull_request 대신 사용
-    types: [opened, synchronize, reopened]
+  pull_request:
     branches: [ "main", "develop" ] # PR의 타겟 브랜치가 main 또는 develop일 때 실행
 
 jobs:
   Run-Test-Coverage:
     name: Run Test Coverage
     runs-on: ubuntu-latest
-    # Job 레벨에서 권한을 다시 한번 명시합니다.
-    permissions:
-      pull-requests: write
-      contents: read
 
     steps:
       # 1. 저장소의 코드를 가져옵니다.
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          # pull_request_target은 기본적으로 타겟 브랜치(base)를 체크아웃하므로, PR에서 수정한 코드(head)를 명시적으로 체크아웃해야 합니다.
-          ref: ${{ github.event.pull_request.head.sha }}
-          repository: ${{ github.event.pull_request.head.repo.full_name }}
 
       # 2. Java 환경을 설정합니다.
       - name: Set up JDK 17
@@ -46,16 +37,3 @@ jobs:
         with:
           name: coverage-report
           path: app/build/reports/jacoco/html/
-
-      # 6. JaCoCo 리포트를 PR 댓글로 작성합니다.
-      - name: Add Coverage PR Comment
-        uses: madrapps/jacoco-report@v1.6.1
-        if: always() # 테스트가 실패하더라도 커버리지 리포트를 댓글로 남김
-        with:
-          paths: |
-            ${{ github.workspace }}/app/build/reports/jacoco/jacocoTestReport/jacocoTestReport.xml
-          token: ${{ secrets.GITHUB_TOKEN }}
-          min-coverage-overall: 70
-          min-coverage-changed-files: 70
-          title: Code Coverage Report
-          update-comment: true # 기존 댓글이 있으면 업데이트
